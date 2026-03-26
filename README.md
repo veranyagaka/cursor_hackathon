@@ -12,7 +12,7 @@ Backend-only CLI that:
 - Python 3.10+
 - `git`
 - `gh` (GitHub CLI), authenticated (`gh auth login`)
-- `OPENAI_API_KEY` environment variable
+- `OPENAI_API_KEY` in `.env` or exported in shell
 - Optional: `AUTOFIX_GH_BIN` if GitHub CLI is installed under a different command/path
 
 ## Setup
@@ -21,7 +21,10 @@ Backend-only CLI that:
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
+cp .env.example .env
 ```
+
+Then edit `.env` and set `OPENAI_API_KEY`.
 
 ## Usage
 

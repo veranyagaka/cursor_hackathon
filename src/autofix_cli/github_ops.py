@@ -68,7 +68,30 @@ def clone_repo(repo_url: str, workspace: Path) -> Path:
     dest = workspace / repo_name
     if dest.exists():
         run(["git", "fetch", "--all"], cwd=dest)
-        run(["git", "pull"], cwd=dest)
+        head_ref = run(
+            ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
+            cwd=dest,
+            check=False,
+        ).stdout.strip()
+        default_branch = head_ref.split("/", 1)[1] if "/" in head_ref else ""
+
+        if not default_branch:
+            for candidate in ("main", "master"):
+                has_branch = run(
+                    ["git", "show-ref", "--verify", f"refs/remotes/origin/{candidate}"],
+                    cwd=dest,
+                    check=False,
+                )
+                if has_branch.returncode == 0:
+                    default_branch = candidate
+                    break
+
+        if not default_branch:
+            raise RuntimeError(
+                "Could not determine remote default branch for existing clone."
+            )
+
+        run(["git", "checkout", "-B", default_branch, f"origin/{default_branch}"], cwd=dest)
         return dest
     run(["git", "clone", repo_url, str(dest)])
     return dest

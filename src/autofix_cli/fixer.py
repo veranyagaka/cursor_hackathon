@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 import shutil
@@ -44,7 +45,12 @@ def _repo_snapshot(repo_dir: Path, max_files: int = 60) -> str:
     )
 
 
-def _generate_patch(repo_dir: Path, issue: Issue, settings: Settings) -> str:
+def _generate_patch(
+    repo_dir: Path,
+    issue: Issue,
+    settings: Settings,
+    extra_instructions: str = "",
+) -> str:
     if not settings.openai_api_key:
         raise RuntimeError(
             "OPENAI_API_KEY is not set. Set it to enable automated code fixing."
@@ -64,6 +70,9 @@ Issue body:
 {issue.body}
 
 {snapshot}
+
+Additional instructions:
+{extra_instructions}
 """
 
     response = client.responses.create(
@@ -76,14 +85,28 @@ Issue body:
     return patch
 
 
-def _apply_patch(repo_dir: Path, patch_text: str) -> None:
+def _try_apply_patch(repo_dir: Path, patch_arg: str) -> str | None:
+    attempts = [
+        ["git", "apply", "--index", patch_arg],
+        ["git", "apply", "--3way", "--index", patch_arg],
+        ["git", "apply", patch_arg],
+        ["git", "apply", "--3way", patch_arg],
+    ]
+    errors: list[str] = []
+    for cmd in attempts:
+        result = run(cmd, cwd=repo_dir, check=False)
+        if result.returncode == 0:
+            return None
+        errors.append(f"{' '.join(cmd)}\n{result.stderr.strip()}")
+    return "\n\n".join(errors)
+
+
+def _apply_patch(repo_dir: Path, patch_text: str) -> str | None:
     patch_file = repo_dir / ".autofix.patch"
+    patch_arg = patch_file.name
     patch_file.write_text(patch_text, encoding="utf-8")
     try:
-        run(["git", "apply", "--index", str(patch_file)], cwd=repo_dir)
-    except RuntimeError:
-        # Fallback for patches without index info.
-        run(["git", "apply", str(patch_file)], cwd=repo_dir)
+        return _try_apply_patch(repo_dir, patch_arg)
     finally:
         if patch_file.exists():
             patch_file.unlink()
@@ -102,8 +125,40 @@ def _validate(repo_dir: Path) -> str:
     )
 
 
-def fix_issue(repo_dir: Path, issue: Issue, settings: Settings) -> FixResult:
+def fix_issue(
+    repo_dir: Path,
+    issue: Issue,
+    settings: Settings,
+    progress: Callable[[str], None] | None = None,
+) -> FixResult:
+    if progress:
+        progress("Generating patch with OpenAI")
     patch_text = _generate_patch(repo_dir, issue, settings)
-    _apply_patch(repo_dir, patch_text)
+    if progress:
+        progress("Applying generated patch")
+    apply_error = _apply_patch(repo_dir, patch_text)
+    if apply_error:
+        if progress:
+            progress("Patch apply failed, retrying with fresh context")
+        retry_instructions = (
+            "The previous patch did not apply cleanly to the current repository state. "
+            "Regenerate the patch so every hunk applies to the exact current files. "
+            "Prefer minimal, targeted edits."
+        )
+        patch_text = _generate_patch(
+            repo_dir, issue, settings, extra_instructions=retry_instructions
+        )
+        if progress:
+            progress("Applying regenerated patch")
+        apply_error = _apply_patch(repo_dir, patch_text)
+        if apply_error:
+            raise RuntimeError(
+                "Failed to apply generated patch after retry.\n\n"
+                f"Apply errors:\n{apply_error}"
+            )
+    if progress:
+        progress("Running validation")
     validation_log = _validate(repo_dir)
+    if progress:
+        progress("Validation finished")
     return FixResult(patch_text=patch_text, validation_log=validation_log)
