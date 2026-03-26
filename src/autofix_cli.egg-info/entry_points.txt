@@ -1,0 +1,2 @@
+[console_scripts]
+autofix = autofix_cli.main:app

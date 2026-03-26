@@ -1,0 +1,14 @@
+README.md
+pyproject.toml
+src/autofix_cli/__init__.py
+src/autofix_cli/config.py
+src/autofix_cli/fixer.py
+src/autofix_cli/github_ops.py
+src/autofix_cli/main.py
+src/autofix_cli/shell.py
+src/autofix_cli.egg-info/PKG-INFO
+src/autofix_cli.egg-info/SOURCES.txt
+src/autofix_cli.egg-info/dependency_links.txt
+src/autofix_cli.egg-info/entry_points.txt
+src/autofix_cli.egg-info/requires.txt
+src/autofix_cli.egg-info/top_level.txt
