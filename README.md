@@ -30,7 +30,8 @@ Then edit `.env` and set `OPENAI_API_KEY`.
 
 ```bash
 autofix doctor
-autofix doctor-patch --repo-dir .autofix-workspace/owner-repo
+autofix run https://github.com/owner/repo --no-create-pr
+autofix doctor-patch --repo-dir .autofix-workspace/repo-name
 autofix run https://github.com/owner/repo
 ```
 
@@ -42,6 +43,7 @@ Optional flags:
 - `--issue 123` pick a specific issue
 - `--workspace .autofix-workspace` clone location
 - `--no-create-pr` run fix + commit only
+- `--no-fallback-synthetic-pr` disable synthetic PR fallback when issue-fix generation fails
 
 ## Notes
 
