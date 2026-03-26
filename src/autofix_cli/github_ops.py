@@ -170,19 +170,18 @@ def push_branch(repo_dir: Path, branch: str) -> None:
     run(["git", "push", "-u", "origin", branch], cwd=repo_dir)
 
 
-def create_pr(slug: str, title: str, body: str) -> str:
-    out = run(
-        _gh_command(
-            [
-                "pr",
-                "create",
-                "--repo",
-                slug,
-                "--title",
-                title,
-                "--body",
-                body,
-            ]
-        )
-    ).stdout.strip()
+def create_pr(slug: str, title: str, body: str, head_branch: str | None = None) -> str:
+    cmd = [
+        "pr",
+        "create",
+        "--repo",
+        slug,
+        "--title",
+        title,
+        "--body",
+        body,
+    ]
+    if head_branch:
+        cmd.extend(["--head", head_branch])
+    out = run(_gh_command(cmd)).stdout.strip()
     return out

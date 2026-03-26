@@ -30,8 +30,12 @@ Then edit `.env` and set `OPENAI_API_KEY`.
 
 ```bash
 autofix doctor
+autofix doctor-patch --repo-dir .autofix-workspace/owner-repo
 autofix run https://github.com/owner/repo
 ```
+
+`doctor-patch` creates a synthetic probe commit and PR by default.
+Use `--no-create-pr` if you only want a local apply/revert patch check.
 
 Optional flags:
 
