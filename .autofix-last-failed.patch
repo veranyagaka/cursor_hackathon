@@ -1,0 +1,7 @@
+diff --git a/README.md b/README.md
+--- a/README.md
++++ b/README.md
+@@ ... @@
+ - Docker is optional. Use it only if you want environment isolation/reproducibility.
++
++by vera
