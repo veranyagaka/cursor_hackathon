@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import json
+import os
 import re
 import shutil
 
@@ -18,8 +19,32 @@ class Issue:
 
 
 def ensure_gh_installed() -> None:
-    if not shutil.which("gh"):
-        raise RuntimeError("GitHub CLI (gh) is required but was not found in PATH.")
+    gh_bin = os.getenv("AUTOFIX_GH_BIN", "gh")
+    if not shutil.which(gh_bin):
+        raise RuntimeError(
+            f"GitHub CLI binary '{gh_bin}' was not found in PATH. "
+            "Install GitHub CLI or set AUTOFIX_GH_BIN to its executable name/path."
+        )
+    version = run([gh_bin, "--version"], check=False)
+    text = f"{version.stdout}\n{version.stderr}".strip()
+    # Accept common official outputs like:
+    # - "gh version X.Y.Z ..."
+    # - "GitHub CLI X.Y.Z"
+    normalized = text.lower()
+    has_expected_version_marker = (
+        "gh version" in normalized or "github cli" in normalized
+    )
+    if version.returncode != 0 or not has_expected_version_marker:
+        raise RuntimeError(
+            f"Binary '{gh_bin}' is available but does not appear to be GitHub CLI.\n"
+            "Install GitHub CLI (https://cli.github.com/) and make sure it is first in PATH, "
+            "or set AUTOFIX_GH_BIN to the correct executable."
+        )
+
+
+def _gh_command(args: list[str]) -> list[str]:
+    gh_bin = os.getenv("AUTOFIX_GH_BIN", "gh")
+    return [gh_bin, *args]
 
 
 def ensure_git_installed() -> None:
@@ -52,19 +77,20 @@ def clone_repo(repo_url: str, workspace: Path) -> Path:
 def list_open_issues(slug: str, limit: int = 10) -> list[Issue]:
     ensure_gh_installed()
     out = run(
-        [
-            "gh",
-            "issue",
-            "list",
-            "--repo",
-            slug,
-            "--state",
-            "open",
-            "--limit",
-            str(limit),
-            "--json",
-            "number,title,url",
-        ]
+        _gh_command(
+            [
+                "issue",
+                "list",
+                "--repo",
+                slug,
+                "--state",
+                "open",
+                "--limit",
+                str(limit),
+                "--json",
+                "number,title,url",
+            ]
+        )
     ).stdout
     raw = json.loads(out)
     issues: list[Issue] = []
@@ -82,16 +108,17 @@ def list_open_issues(slug: str, limit: int = 10) -> list[Issue]:
 
 def get_issue(slug: str, number: int) -> Issue:
     out = run(
-        [
-            "gh",
-            "issue",
-            "view",
-            str(number),
-            "--repo",
-            slug,
-            "--json",
-            "number,title,body,url",
-        ]
+        _gh_command(
+            [
+                "issue",
+                "view",
+                str(number),
+                "--repo",
+                slug,
+                "--json",
+                "number,title,body,url",
+            ]
+        )
     ).stdout
     item = json.loads(out)
     return Issue(
@@ -122,16 +149,17 @@ def push_branch(repo_dir: Path, branch: str) -> None:
 
 def create_pr(slug: str, title: str, body: str) -> str:
     out = run(
-        [
-            "gh",
-            "pr",
-            "create",
-            "--repo",
-            slug,
-            "--title",
-            title,
-            "--body",
-            body,
-        ]
+        _gh_command(
+            [
+                "pr",
+                "create",
+                "--repo",
+                slug,
+                "--title",
+                title,
+                "--body",
+                body,
+            ]
+        )
     ).stdout.strip()
     return out

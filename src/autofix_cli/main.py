@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import textwrap
 
 import typer
@@ -12,17 +13,65 @@ from .github_ops import (
     commit_all,
     create_branch,
     create_pr,
+    ensure_gh_installed,
+    ensure_git_installed,
     get_issue,
     list_open_issues,
     push_branch,
     repo_slug_from_url,
 )
+from .shell import run
 
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
     help="CLI backend that finds GitHub issues, applies an automated fix, and opens a PR.",
 )
+
+
+@app.command("doctor")
+def doctor() -> None:
+    """Run preflight checks for local environment setup."""
+    failures = 0
+
+    def ok(msg: str) -> None:
+        typer.echo(f"[OK] {msg}")
+
+    def fail(msg: str) -> None:
+        nonlocal failures
+        failures += 1
+        typer.echo(f"[FAIL] {msg}")
+
+    try:
+        ensure_git_installed()
+        ok("git is installed")
+    except RuntimeError as exc:
+        fail(str(exc))
+
+    gh_bin = os.getenv("AUTOFIX_GH_BIN", "gh")
+    gh_available = False
+    try:
+        ensure_gh_installed()
+        ok(f"GitHub CLI is installed and valid ({gh_bin})")
+        gh_available = True
+    except RuntimeError as exc:
+        fail(str(exc))
+
+    if gh_available:
+        auth = run([gh_bin, "auth", "status"], check=False)
+        if auth.returncode == 0:
+            ok("GitHub CLI auth is configured")
+        else:
+            fail("GitHub CLI auth is not configured. Run: gh auth login")
+
+    if os.getenv("OPENAI_API_KEY"):
+        ok("OPENAI_API_KEY is set")
+    else:
+        fail("OPENAI_API_KEY is not set")
+
+    if failures:
+        raise typer.Exit(code=1)
+    typer.echo("All checks passed.")
 
 
 @app.command("run")

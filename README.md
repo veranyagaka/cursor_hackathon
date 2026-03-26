@@ -13,6 +13,7 @@ Backend-only CLI that:
 - `git`
 - `gh` (GitHub CLI), authenticated (`gh auth login`)
 - `OPENAI_API_KEY` environment variable
+- Optional: `AUTOFIX_GH_BIN` if GitHub CLI is installed under a different command/path
 
 ## Setup
 
@@ -25,6 +26,7 @@ pip install -e .
 ## Usage
 
 ```bash
+autofix doctor
 autofix run https://github.com/owner/repo
 ```
 
@@ -39,3 +41,4 @@ Optional flags:
 - The default behavior selects the first open issue from `gh issue list`.
 - Patch generation is done through OpenAI and applied as a git diff.
 - Validation is best-effort and auto-detects simple test commands.
+- Docker is optional. Use it only if you want environment isolation/reproducibility.
